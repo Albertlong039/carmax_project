@@ -1,0 +1,138 @@
+---
+title: "Untitled"
+output: html_document
+date: "2023-01-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{R}
+library(dplyr)
+library(ggplot2)
+library(RColorBrewer)
+library(ggpubr)
+
+cwd <- dirname(rstudioapi::getSourceEditorContext()$path)
+
+#load data
+
+#unique(st$mileage)
+
+st <- read.csv(
+  paste(cwd,"/ShowcaseDataWinter2023.csv",sep=""),
+  stringsAsFactors = FALSE
+)
+```
+
+```{r}
+offer_map<-c("$0k to $5k" = 0, "$5k to $10k" = 1, "$10k to $15k" = 2, "$15k to $20k" = 3, "$20k to $25k" = 4, "$25k to $30k" = 5, "$30k to $35k" = 6, "$35k to $40k" = 7, "$40k+" = 8)
+mile_appraisal_map <- c(
+  "0 to 10k miles" = 0,
+  "10k to 20k miles" = 1,
+  "20k to 30k miles" = 2,
+  "30k to 40k miles" = 3,
+  "40k to 50k miles" = 4,
+  "50k to 60k miles" = 5,
+  "60k to 70k miles" = 6,
+  "70k to 80k miles" = 7,
+  "80k to 90k miles" = 8,
+  "90k to 100k miles" = 9,
+  "100k to 110k miles" = 10,
+  "110k to 120k miles" = 11,
+  "120k to 130k miles" = 12,
+  "130k to 140k miles" = 13,
+  "140k to 150k miles" = 14,
+  "150k to 160k miles" = 15,
+  "160k to 170k miles" = 16,
+  "170k to 180k miles" = 17,
+  "180k to 190k miles" = 18,
+  "190k to 200k miles" = 19,
+  "200k+ miles" = 20
+)
+price_map <- c(
+  "$0 to $15k" = 0,
+  "$15k to $20k" = 1,
+  "$20k to $25k" = 2,
+  "$25k to $30k" = 3,
+  "$30k to $35k" = 4,
+  "$35k to $40k" = 5,
+  "$40k to $45k" = 6,
+  "$45k to $50k" = 7,
+  "$50k to $55k" = 8,
+  "$55k to $60k" = 9,
+  "$60k to $65k" = 10,
+  "$65k to $70k" = 11,
+  "$70k+" = 12
+)
+st <- st %>%
+  mutate(
+    price_level = price_map[price],
+    mileage_level = mile_appraisal_map[mileage_appraisal],
+    appraisal_offer_level= offer_map[appraisal_offer]
+  )
+```
+
+```{r}
+MSE0 <- mean((st$price_level - st$appraisal_offer_level)^2)
+```
+
+```{r}
+
+model <- lm(price_level~appraisal_offer_level+mileage_level+cylinders_appraisal+mpg_city_appraisal+mpg_highway_appraisal+horsepower_appraisal, data=train_set)
+summary(model)
+head(test_set)
+test_input<-test_set %>% dplyr::select(appraisal_offer_level,mileage_level,cylinders_appraisal,mpg_city_appraisal,mpg_highway_appraisal,horsepower_appraisal)
+
+y_predict <- predict(model,test_input)
+y_testtest <- test_set[,"price_level"]
+MSE2 <- mean((y_predict - y_testtest)^2)
+```
+
+```{r decisiontree}
+# Put your code here, with comments and good style and syntax
+library(randomForest)
+library(MASS)
+# Set seed for reproductivity
+set.seed(1)
+# For the training and testing data, we chose the same one from the lab of the book 
+# (Which is half/half)
+train <- sample(1:nrow(st), nrow(st)/2)
+train_set <- st[train_index,]
+test_set <- st[test_index,]
+y_test <- st[-train, "price_level"]
+# Random Forest: ntree = 25
+rf1 <- randomForest(price_level ~ appraisal_offer_level+mileage_level+cylinders_appraisal+mpg_city_appraisal+mpg_highway_appraisal+horsepower_appraisal, data = st, subset = train, 
+                    mtry = 2, ntree = 60, importance = TRUE)
+# Visualize the importance of the varaibles
+varImpPlot(rf1)
+# Prediction and Error
+pred1 <- predict(rf1, newdata = st[-train, ])
+plot(rf1)
+plot(pred1)
+MSE1 <- mean((pred1 - y_test)^2)
+```
+```{r}
+test_index <- sample(1:nrow(st), nrow(st)/7)
+allnums<- (1:nrow(st))
+train_index<- allnums[-test_index]
+```
+
+```{r}
+library("tree")
+train_tree <- st[train_index,]
+test_tree <- st[test_index,]
+tree <- tree(price_level ~ appraisal_offer_level+mileage_level+cylinders_appraisal+mpg_city_appraisal+mpg_highway_appraisal+horsepower_appraisal+fuel_capacity_appraisal, st, subset = train_index)
+plot(tree)
+summary(tree)
+
+text(tree, pretty = 0, cex = 1)
+
+tree.pred <- predict(tree, test_tree)
+MSE.tree <- mean((tree.pred - test_tree$price_level)^2)
+MSE.tree
+```
+
